@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "526926569689",
+    "project_id": "binary-app-tech-chat",
+    "storage_bucket": "binary-app-tech-chat.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:526926569689:android:7bb6dec2a1ee8e571e1ec8",
+        "android_client_info": {
+          "package_name": "com.example.binary_app_tech_chat"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAzJeYHIhgYBIpU2P7iK9sZs1X7KqJgt3I"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
