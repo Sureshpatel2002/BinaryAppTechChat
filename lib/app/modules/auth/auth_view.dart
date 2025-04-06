@@ -17,7 +17,7 @@ class _AuthViewState extends State<AuthView> {
 
   bool isSignUp = false;
   bool isLoading = false; // Add this line
-
+  bool isSignUpAndSignInLoading = false; // Add this line
   @override
   Widget build(BuildContext context) {
     final controller = Get.find<AuthController>();
@@ -54,7 +54,10 @@ class _AuthViewState extends State<AuthView> {
                       : const FaIcon(FontAwesomeIcons.google,
                           color: Colors.red),
                   label: isLoading
-                      ? Center(child: CircularProgressIndicator(color: Colors.blueAccent,))
+                      ? Center(
+                          child: CircularProgressIndicator(
+                          color: Colors.blueAccent,
+                        ))
                       : const Text('Continue with Google'),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.white,
@@ -132,19 +135,27 @@ class _AuthViewState extends State<AuthView> {
                       return;
                     }
 
-                    setState(() => isLoading = true);
+                    setState(() => isSignUpAndSignInLoading = true);
                     if (isSignUp) {
                       await controller.signUpWithEmail(name, email, password);
                     } else {
                       await controller.signInWithEmail(email, password);
                     }
-                    setState(() => isLoading = false);
+                    setState(() => isSignUpAndSignInLoading = false);
                   },
                   style: ElevatedButton.styleFrom(
                     minimumSize: const Size(double.infinity, 50),
                     backgroundColor: Colors.blueAccent,
                   ),
-                  child: Text(isSignUp ? "Sign Up" : "Sign In",style: TextStyle(color: Colors.white),),
+                  child: isSignUpAndSignInLoading
+                      ? Center(
+                          child: CircularProgressIndicator(
+                          color: Colors.white,
+                        ))
+                      : Text(
+                          isSignUp ? "Sign Up" : "Sign In",
+                          style: TextStyle(color: Colors.white),
+                        ),
                 ),
                 TextButton(
                   onPressed: () {

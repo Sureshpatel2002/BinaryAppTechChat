@@ -2,17 +2,40 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:image_picker/image_picker.dart';
 import 'chat_controller.dart';
 
 class ChatView extends StatelessWidget {
-  const ChatView({super.key});
+  ChatView({super.key});
+
+  final ScrollController _scrollController = ScrollController();
+  final FocusNode _focusNode = FocusNode();
 
   @override
   Widget build(BuildContext context) {
     final controller = Get.find<ChatController>();
     final args = Get.arguments;
     controller.initChat(args['chatId'], args['otherUid']);
+
+    // Scroll to the bottom when messages are updated
+    controller.messages.listen((_) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (_scrollController.hasClients) {
+          _scrollController.jumpTo(_scrollController.position.maxScrollExtent);
+        }
+      });
+    });
+
+    // Scroll to the bottom when the keyboard is opened
+    _focusNode.addListener(() {
+      if (_focusNode.hasFocus) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (_scrollController.hasClients) {
+            _scrollController
+                .jumpTo(_scrollController.position.maxScrollExtent);
+          }
+        });
+      }
+    });
 
     return Scaffold(
       resizeToAvoidBottomInset: true,
@@ -93,7 +116,7 @@ class ChatView extends StatelessWidget {
             child: Obx(() {
               final messages = controller.messages;
               return ListView.builder(
-                controller: ScrollController(),
+                controller: _scrollController,
                 itemCount: messages.length,
                 itemBuilder: (context, index) {
                   final msg = messages[index];
@@ -223,18 +246,10 @@ class ChatView extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               child: Row(
                 children: [
-                  // Uncomment below if you want icons back later
-                  // IconButton(
-                  //   icon: Icon(Icons.camera_alt, color: Colors.deepPurple),
-                  //   onPressed: () => controller.pickAndSendImage(ImageSource.camera),
-                  // ),
-                  // IconButton(
-                  //   icon: Icon(Icons.image, color: Colors.deepPurple),
-                  //   onPressed: () => controller.pickAndSendImage(ImageSource.gallery),
-                  // ),
                   Expanded(
                     child: TextField(
                       controller: controller.messageController,
+                      focusNode: _focusNode, // Attach the focus node
                       decoration: const InputDecoration(
                         hintText: 'Type a message...',
                         border: InputBorder.none,

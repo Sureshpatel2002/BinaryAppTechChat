@@ -14,7 +14,7 @@ part 'app_routes.dart';
 
 class AppPages {
   static const initial = Routes.auth;
-
+  static const home = Routes.home;
   static final routes = [
     GetPage(
       name: Routes.auth,
@@ -28,7 +28,7 @@ class AppPages {
     ),
     GetPage(
       name: Routes.chat,
-      page: () => const ChatView(),
+      page: () =>  ChatView(),
       binding: ChatBinding(),
     ),
     GetPage(name: '/new_chat', page: () => NewChatView()),

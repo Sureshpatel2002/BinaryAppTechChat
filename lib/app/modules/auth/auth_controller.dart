@@ -44,6 +44,15 @@ class AuthController extends GetxController {
     }
   }
 
+  void setOnlineStatus(bool isOnline) async {
+    final currentUser = _auth.currentUser;
+    if (currentUser != null) {
+      await _firestore.collection('users').doc(currentUser.uid).update({
+        'onlineStatus': isOnline,
+      });
+    }
+  }
+
   Future<void> signUpWithEmail(
       String name, String email, String password) async {
     try {
@@ -68,9 +77,17 @@ class AuthController extends GetxController {
 
   Future<void> signInWithEmail(String email, String password) async {
     try {
-      await _auth.signInWithEmailAndPassword(email: email, password: password);
-      await saveFcmToken(_auth.currentUser!);
-      Get.offAllNamed('/home');
+      final userCred = await _auth.signInWithEmailAndPassword(
+        email: email,
+        password: password,
+      );
+
+      final user = userCred.user;
+      if (user != null) {
+        await saveFcmToken(user); // Save FCM token
+        setOnlineStatus(true); // Mark user as online
+        Get.offAllNamed('/home'); // Navigate to home
+      }
     } catch (e) {
       Get.snackbar("Login Error", e.toString());
     }
@@ -88,7 +105,6 @@ class AuthController extends GetxController {
         log('[AuthController][WARNING] FCM token is null');
       }
 
-      // Listen for future token refresh
       FirebaseMessaging.instance.onTokenRefresh.listen((newToken) async {
         await _firestore.collection('users').doc(user.uid).update({
           'fcmToken': newToken,
@@ -120,5 +136,11 @@ class AuthController extends GetxController {
         'onlineStatus': true,
       });
     }
+  }
+
+  @override
+  void onClose() {
+    setOnlineStatus(false);
+    super.onClose();
   }
 }

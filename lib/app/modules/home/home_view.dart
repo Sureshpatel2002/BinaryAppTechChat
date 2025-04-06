@@ -1,9 +1,12 @@
 // home_view.dart
+import 'dart:developer';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../routes/app_pages.dart';
+import '../auth/auth_controller.dart';
 import 'home_controller.dart';
 
 class HomeView extends StatelessWidget {
@@ -34,7 +37,9 @@ class HomeView extends StatelessWidget {
           ),
           IconButton(
             icon: const Icon(Icons.logout, color: Colors.white),
-            onPressed: _showLogoutConfirmation,
+            onPressed: () {
+              _showLogoutConfirmation(controller);
+            },
           ),
         ],
       ),
@@ -58,10 +63,9 @@ class HomeView extends StatelessWidget {
               if (!participants.contains(currentUser!.uid) ||
                   participants.length <= 1) return const SizedBox.shrink();
 
-              final otherUid = participants.firstWhere(
+              final otherUid = (participants.firstWhereOrNull(
                 (id) => id != currentUser.uid,
-                orElse: () => null,
-              );
+              ));
 
               final lastMsg = chat['lastMessage'] ?? '';
               final time = (chat['lastMessageTime'] as Timestamp?)?.toDate();
@@ -83,19 +87,69 @@ class HomeView extends StatelessWidget {
                               style: TextStyle(fontSize: 14))),
                     );
                   }
-                  if (snapshot.hasError ||
-                      !snapshot.hasData ||
-                      !snapshot.data!.exists) {
+                  if (snapshot.hasError) {
                     return const ListTile(
-                      title: Text('User not found',
-                          style: TextStyle(color: Colors.red)),
+                      title: Center(
+                        child: Text('User not found',
+                            style: TextStyle(color: Colors.red)),
+                      ),
                     );
                   }
-                  final userData =
-                      snapshot.data!.data() as Map<String, dynamic>;
-                  final displayName = userData['displayName'] ?? 'User';
-                  final photoUrl = userData['photoUrl'] ?? '';
+
+                  // if (snapshot.hasError ||
+                  //     !snapshot.hasData ||
+                  //     snapshot.data?.data() == null) {
+                  //   return const ListTile(
+                  //     title: Center(
+                  //       child: Text('User not found',
+                  //           style: TextStyle(color: Colors.red)),
+                  //     ),
+                  //   );
+                  // }
+
+                  final rawData = snapshot.data!.data();
+
+                  if (rawData == null) {
+                    log('❌ rawData is null for UID: ${snapshot.data!.id}');
+                    return const ListTile(
+                      title: Center(
+                        child: Text('No user data found',
+                            style: TextStyle(color: Colors.red)),
+                      ),
+                    );
+                  }
+
+                  final userData = rawData as Map<String, dynamic>;
+
+// Log missing or null fields
+                  if (!userData.containsKey('displayName') ||
+                      userData['displayName'] == null) {
+                    log('⚠️ displayName is missing or null for UID: ${snapshot.data!.id}');
+                  }
+                  if (!userData.containsKey('photoUrl') ||
+                      userData['photoUrl'] == null) {
+                    log('⚠️ photoUrl is missing or null for UID: ${snapshot.data!.id}');
+                  }
+                  if (!userData.containsKey('onlineStatus') ||
+                      userData['onlineStatus'] == null) {
+                    log('⚠️ onlineStatus is missing or null for UID: ${snapshot.data!.id}');
+                  }
+
+// Fallback-safe values
+                  final displayName =
+                      (userData['displayName'] ?? 'User') as String;
+                  final photoUrl = (userData['photoUrl'] ?? '') as String;
                   final isOnline = userData['onlineStatus'] == true;
+
+// Optionally, you can skip the check below, or just log incomplete data
+                  if (displayName.trim().isEmpty) {
+                    return const ListTile(
+                      title: Center(
+                        child: Text('Unnamed user',
+                            style: TextStyle(color: Colors.orange)),
+                      ),
+                    );
+                  }
 
                   return Card(
                     margin:
@@ -164,7 +218,7 @@ class HomeView extends StatelessWidget {
     );
   }
 
-  void _showLogoutConfirmation() {
+  void _showLogoutConfirmation(HomeController controller) {
     Get.defaultDialog(
       title: "Logout",
       middleText: "Are you sure you want to log out?",
@@ -173,7 +227,10 @@ class HomeView extends StatelessWidget {
       confirmTextColor: Colors.white,
       onConfirm: () async {
         try {
+          final authController = Get.find<AuthController>();
+          authController.setOnlineStatus(false);
           await FirebaseAuth.instance.signOut();
+
           // Navigate to the auth route after logging out
           Get.offAllNamed(Routes.auth); // Use the defined route name
           Get.snackbar('Logged Out', 'You have been successfully logged out.');

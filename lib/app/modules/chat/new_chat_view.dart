@@ -58,7 +58,8 @@ class _NewChatViewState extends State<NewChatView> {
               return StreamBuilder<QuerySnapshot>(
                 stream: _firestore
                     .collection('users')
-                    .where('email', isEqualTo: searchText.value)
+                    .where('email', isGreaterThanOrEqualTo: searchText.value)
+                    .where('email', isLessThan: searchText.value + 'z')
                     .snapshots(),
                 builder: (context, snapshot) {
                   if (!snapshot.hasData) {
@@ -70,7 +71,8 @@ class _NewChatViewState extends State<NewChatView> {
                       .toList();
 
                   if (users.isEmpty) {
-                    return const Center(child: Text('No users found.'));
+                    return const Center(
+                        child: Text('No matching users found.'));
                   }
 
                   return ListView.builder(

@@ -56,6 +56,14 @@ class ChatController extends GetxController {
     });
   }
 
+  void updateTypingStatus(bool isTyping) {
+    final currentUid = _auth.currentUser!.uid;
+
+    _firestore.collection('chats').doc(chatId).update({
+      'typing.$currentUid': isTyping,
+    });
+  }
+
   void listenToTypingStatus() {
     if (chatId.isEmpty) return;
     _firestore.collection('chats').doc(chatId).snapshots().listen((snapshot) {
@@ -260,23 +268,6 @@ class ChatController extends GetxController {
     await batch.commit();
   }
 
-  void updateTypingStatus(bool isTyping) {
-    final currentUid = _auth.currentUser!.uid;
-
-    _firestore.collection('chats').doc(chatId).update({
-      'typing.$currentUid': isTyping,
-    });
-
-    _typingTimer?.cancel();
-    if (isTyping) {
-      _typingTimer = Timer(const Duration(seconds: 2), () {
-        _firestore.collection('chats').doc(chatId).update({
-          'typing.$currentUid': false,
-        });
-      });
-    }
-  }
-
   Future<void> clearChat() async {
     try {
       final chatDocRef = _firestore.collection('chats').doc(chatId);
@@ -305,7 +296,10 @@ class ChatController extends GetxController {
     }
   }
 
-  Future<void> sendNotification(String recipientUid, String message,) async {
+  Future<void> sendNotification(
+    String recipientUid,
+    String message,
+  ) async {
     final token = await _getUserToken(recipientUid);
     if (token == null) {
       log('[Notification] No FCM token found for user $recipientUid');
@@ -325,7 +319,8 @@ class ChatController extends GetxController {
 
     final headers = {
       'Content-Type': 'application/json',
-      'Authorization': 'AIzaSyAzJeYHIhgYBIpU2P7iK9sZs1X7KqJgt3I', // Replace with actual server key
+      'Authorization':
+          'AIzaSyAzJeYHIhgYBIpU2P7iK9sZs1X7KqJgt3I', // Replace with actual server key
     };
 
     log('[Notification] Sending FCM notification to $token with payload: ${json.encode(data)}');
