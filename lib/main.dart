@@ -82,7 +82,7 @@ Future<void> main() async {
     final authController = Get.put(AuthController());
     authController.setOnlineStatus(true);
   }
-
+  Get.put(AuthController());
   runApp(const MyApp());
 }
 

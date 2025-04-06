@@ -10,13 +10,22 @@ class ChatView extends StatelessWidget {
   final ScrollController _scrollController = ScrollController();
   final FocusNode _focusNode = FocusNode();
 
+  void _updateIsTyping(bool isTyping) {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .update({'isTyping': isTyping});
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final controller = Get.find<ChatController>();
     final args = Get.arguments;
     controller.initChat(args['chatId'], args['otherUid']);
 
-    // Scroll to the bottom when messages are updated
     controller.messages.listen((_) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (_scrollController.hasClients) {
@@ -25,16 +34,17 @@ class ChatView extends StatelessWidget {
       });
     });
 
-    // Scroll to the bottom when the keyboard is opened
     _focusNode.addListener(() {
-      if (_focusNode.hasFocus) {
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (_scrollController.hasClients) {
-            _scrollController
-                .jumpTo(_scrollController.position.maxScrollExtent);
-          }
-        });
-      }
+      _updateIsTyping(_focusNode.hasFocus);
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (_scrollController.hasClients) {
+          _scrollController.jumpTo(_scrollController.position.maxScrollExtent);
+        }
+      });
+    });
+    controller.messages.listen((messages) {
+      // Call markMessagesAsRead when messages are updated
+      controller.markMessagesAsRead(messages);
     });
 
     return Scaffold(
@@ -42,25 +52,23 @@ class ChatView extends StatelessWidget {
       backgroundColor: Colors.white,
       appBar: PreferredSize(
         preferredSize: const Size.fromHeight(60),
-        child: FutureBuilder<DocumentSnapshot>(
-          future: FirebaseFirestore.instance
+        child: StreamBuilder<DocumentSnapshot>(
+          stream: FirebaseFirestore.instance
               .collection('users')
               .doc(args['otherUid'])
-              .get(),
+              .snapshots(), // 👈 live updates
           builder: (context, snapshot) {
-            if (!snapshot.hasData) {
-              return AppBar(title: const Text('Chat'));
-            }
+            if (!snapshot.hasData) return AppBar(title: const Text('Chat'));
 
             final userData = snapshot.data!.data() as Map<String, dynamic>;
             final displayName = userData['displayName'] ?? 'User';
             final photoUrl = userData['photoUrl'] ?? '';
             final isOnline = userData['onlineStatus'] == true;
+            final isTyping = userData['isTyping'] == true;
 
             return AppBar(
               backgroundColor: Colors.deepPurple,
-              leadingWidth: 40,
-              iconTheme: IconThemeData(color: Colors.white),
+              iconTheme: const IconThemeData(color: Colors.white),
               titleSpacing: 0,
               title: Row(
                 children: [
@@ -68,20 +76,28 @@ class ChatView extends StatelessWidget {
                     radius: 18,
                     backgroundImage:
                         photoUrl.isNotEmpty ? NetworkImage(photoUrl) : null,
-                    child: photoUrl.isEmpty ? const Icon(Icons.person) : null,
+                    child: photoUrl.isEmpty
+                        ? const Icon(Icons.person, color: Colors.white)
+                        : null,
                   ),
                   const SizedBox(width: 10),
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(displayName,
-                          style: const TextStyle(
-                              fontSize: 16, color: Colors.white)),
                       Text(
-                        isOnline ? 'Online' : 'Offline',
+                        displayName,
+                        style:
+                            const TextStyle(fontSize: 16, color: Colors.white),
+                      ),
+                      Text(
+                        isTyping
+                            ? 'Typing...'
+                            : (isOnline ? 'Online' : 'Offline'),
                         style: TextStyle(
                           fontSize: 12,
-                          color: isOnline ? Colors.greenAccent : Colors.grey,
+                          color: isTyping
+                              ? Colors.orangeAccent
+                              : (isOnline ? Colors.greenAccent : Colors.grey),
                         ),
                       ),
                     ],
@@ -125,22 +141,24 @@ class ChatView extends StatelessWidget {
                   final messageTime =
                       (msg['timestamp'] as Timestamp?)?.toDate();
 
+                  final previousTime = index > 0
+                      ? (messages[index - 1]['timestamp'] as Timestamp?)
+                          ?.toDate()
+                      : null;
+
+                  final showDateSeparator = messageTime != null &&
+                      (previousTime == null ||
+                          messageTime.day != previousTime.day);
+
                   return Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      if (index == 0 ||
-                          (index > 0 &&
-                              (messages[index - 1]['timestamp'] as Timestamp?)
-                                      ?.toDate()
-                                      .day !=
-                                  messageTime?.day))
+                      if (showDateSeparator)
                         Padding(
                           padding: const EdgeInsets.symmetric(vertical: 8.0),
                           child: Center(
                             child: Text(
-                              messageTime != null
-                                  ? '${messageTime.day}/${messageTime.month}/${messageTime.year}'
-                                  : '',
+                              '${messageTime!.day}/${messageTime.month}/${messageTime.year}',
                               style: const TextStyle(
                                   fontSize: 12, color: Colors.grey),
                             ),
@@ -182,15 +200,13 @@ class ChatView extends StatelessWidget {
                                 ),
                               if (messageTime != null)
                                 Row(
-                                  crossAxisAlignment: isMe
-                                      ? CrossAxisAlignment.end
-                                      : CrossAxisAlignment.start,
+                                  crossAxisAlignment: CrossAxisAlignment.center,
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
                                     Text(
                                       '${messageTime.hour.toString().padLeft(2, '0')}:${messageTime.minute.toString().padLeft(2, '0')}',
                                       style: const TextStyle(
-                                          fontSize: 10, color: Colors.black),
+                                          fontSize: 10, color: Colors.black87),
                                     ),
                                     const SizedBox(width: 4),
                                     if (isMe)
@@ -200,16 +216,14 @@ class ChatView extends StatelessWidget {
                                             .doc(args['otherUid'])
                                             .get(),
                                         builder: (context, snapshot) {
-                                          if (!snapshot.hasData)
-                                            return const SizedBox();
-                                          final isOnline = (snapshot.data!
-                                                      .data()
+                                          final readBy =
+                                              msg['readBy'] as List? ?? [];
+                                          final isOnline = (snapshot.data
+                                                      ?.data()
                                                   as Map?)?['onlineStatus'] ==
                                               true;
-                                          final readBy = msg['readBy'] as List;
 
                                           Icon icon;
-
                                           if (readBy.length > 1) {
                                             icon = const Icon(Icons.done_all,
                                                 size: 16, color: Colors.green);
@@ -222,7 +236,6 @@ class ChatView extends StatelessWidget {
                                                 size: 16,
                                                 color: Colors.white54);
                                           }
-
                                           return icon;
                                         },
                                       ),
@@ -240,7 +253,6 @@ class ChatView extends StatelessWidget {
           ),
           Material(
             elevation: 3,
-            shadowColor: Colors.black26,
             color: Colors.white,
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -249,7 +261,10 @@ class ChatView extends StatelessWidget {
                   Expanded(
                     child: TextField(
                       controller: controller.messageController,
-                      focusNode: _focusNode, // Attach the focus node
+                      focusNode: _focusNode,
+                      onChanged: (text) {
+                        _updateIsTyping(text.isNotEmpty);
+                      },
                       decoration: const InputDecoration(
                         hintText: 'Type a message...',
                         border: InputBorder.none,
@@ -257,7 +272,10 @@ class ChatView extends StatelessWidget {
                     ),
                   ),
                   InkWell(
-                    onTap: controller.sendMessage,
+                    onTap: () {
+                      controller.sendMessage();
+                      _updateIsTyping(false);
+                    },
                     child: Container(
                       padding: const EdgeInsets.all(8),
                       decoration: const BoxDecoration(

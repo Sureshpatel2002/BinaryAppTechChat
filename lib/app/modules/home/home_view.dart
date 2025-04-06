@@ -81,11 +81,11 @@ class HomeView extends StatelessWidget {
                     .get(),
                 builder: (context, snapshot) {
                   if (snapshot.connectionState == ConnectionState.waiting) {
-                    return const ListTile(
-                      title: Center(
-                          child: Text('Loading...',
-                              style: TextStyle(fontSize: 14))),
-                    );
+                    // return const ListTile(
+                    //   title: Center(
+                    //       child: Text('Loading...',
+                    //           style: TextStyle(fontSize: 14))),
+                    // );
                   }
                   if (snapshot.hasError) {
                     return const ListTile(
@@ -189,11 +189,28 @@ class HomeView extends StatelessWidget {
                         displayName,
                         style: const TextStyle(fontWeight: FontWeight.w600),
                       ),
-                      subtitle: Text(
-                        lastMsg,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
+                      subtitle: userData['isTyping'] == true
+                          ? const Text(
+                              'Typing...',
+                              style: TextStyle(
+                                fontWeight: FontWeight.w500,
+                                color: Colors.deepPurple,
+                                fontStyle: FontStyle.italic,
+                              ),
+                            )
+                          : Text(
+                              lastMsg,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontWeight: (chat['readBy'] as List?)
+                                            ?.contains(currentUser!.uid) ==
+                                        true
+                                    ? FontWeight.normal
+                                    : FontWeight.bold,
+                                color: Colors.black87,
+                              ),
+                            ),
                       trailing: time != null
                           ? Text(
                               '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}',
@@ -228,16 +245,23 @@ class HomeView extends StatelessWidget {
       onConfirm: () async {
         try {
           final authController = Get.find<AuthController>();
+
+          // ✅ Set onlineStatus to false
           authController.setOnlineStatus(false);
+
+          // ✅ Sign out
           await FirebaseAuth.instance.signOut();
 
-          // Navigate to the auth route after logging out
-          Get.offAllNamed(Routes.auth); // Use the defined route name
+          // ✅ Close dialog and navigate
+          Get.back(); // Close dialog
+          Get.offAllNamed(Routes.auth);
+
           Get.snackbar('Logged Out', 'You have been successfully logged out.');
         } catch (e) {
-          Get.snackbar('Error', 'Failed to log out. Please try again.');
+          Get.snackbar('Error', 'Failed to log out. ${e.toString()}');
         }
       },
+      onCancel: () => Get.back(),
     );
   }
 }

@@ -67,7 +67,9 @@ class AuthController extends GetxController {
         'bio': '',
         'lastSeen': FieldValue.serverTimestamp(),
         'onlineStatus': true,
+        'isTyping': false, // ✅ already added
       });
+
       await saveFcmToken(user);
       Get.offAllNamed('/home');
     } catch (e) {
@@ -77,17 +79,9 @@ class AuthController extends GetxController {
 
   Future<void> signInWithEmail(String email, String password) async {
     try {
-      final userCred = await _auth.signInWithEmailAndPassword(
-        email: email,
-        password: password,
-      );
-
-      final user = userCred.user;
-      if (user != null) {
-        await saveFcmToken(user); // Save FCM token
-        setOnlineStatus(true); // Mark user as online
-        Get.offAllNamed('/home'); // Navigate to home
-      }
+      await _auth.signInWithEmailAndPassword(email: email, password: password);
+      await saveFcmToken(_auth.currentUser!);
+      Get.offAllNamed('/home');
     } catch (e) {
       Get.snackbar("Login Error", e.toString());
     }
@@ -134,7 +128,14 @@ class AuthController extends GetxController {
         'bio': '',
         'lastSeen': FieldValue.serverTimestamp(),
         'onlineStatus': true,
+        'isTyping': false, // ✅ added here for Google Sign-In users
       });
+    } else {
+      // Optional: ensure field is added if missing (for old users)
+      final data = snapshot.data();
+      if (data != null && !data.containsKey('isTyping')) {
+        await doc.update({'isTyping': false});
+      }
     }
   }
 
