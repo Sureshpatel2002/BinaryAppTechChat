@@ -15,6 +15,8 @@ class ChatView extends StatelessWidget {
     controller.initChat(args['chatId'], args['otherUid']);
 
     return Scaffold(
+      resizeToAvoidBottomInset: true,
+      backgroundColor: Colors.white,
       appBar: PreferredSize(
         preferredSize: const Size.fromHeight(60),
         child: FutureBuilder<DocumentSnapshot>(
@@ -33,7 +35,9 @@ class ChatView extends StatelessWidget {
             final isOnline = userData['onlineStatus'] == true;
 
             return AppBar(
+              backgroundColor: Colors.deepPurple,
               leadingWidth: 40,
+              iconTheme: IconThemeData(color: Colors.white),
               titleSpacing: 0,
               title: Row(
                 children: [
@@ -47,7 +51,9 @@ class ChatView extends StatelessWidget {
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(displayName, style: const TextStyle(fontSize: 16)),
+                      Text(displayName,
+                          style: const TextStyle(
+                              fontSize: 16, color: Colors.white)),
                       Text(
                         isOnline ? 'Online' : 'Offline',
                         style: TextStyle(
@@ -60,9 +66,21 @@ class ChatView extends StatelessWidget {
                 ],
               ),
               actions: [
-                IconButton(
+                PopupMenuButton<String>(
+                  onSelected: (value) {
+                    if (value == 'clear_chat') {
+                      controller.clearChat();
+                    }
+                  },
+                  itemBuilder: (BuildContext context) {
+                    return [
+                      const PopupMenuItem<String>(
+                        value: 'clear_chat',
+                        child: Text('Clear Chat'),
+                      ),
+                    ];
+                  },
                   icon: const Icon(Icons.more_vert),
-                  onPressed: () {}, // Add any menu/settings actions here
                 ),
               ],
             );
@@ -81,86 +99,164 @@ class ChatView extends StatelessWidget {
                   final msg = messages[index];
                   final isMe =
                       msg['senderId'] == FirebaseAuth.instance.currentUser!.uid;
+                  final messageTime =
+                      (msg['timestamp'] as Timestamp?)?.toDate();
 
-                  return Align(
-                    alignment:
-                        isMe ? Alignment.centerRight : Alignment.centerLeft,
-                    child: Container(
-                      margin: const EdgeInsets.symmetric(
-                          vertical: 4, horizontal: 8),
-                      padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                        color: isMe ? Colors.blue : Colors.grey.shade300,
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.end,
-                        children: [
-                          if (msg['type'] == 'image')
-                            ClipRRect(
-                              borderRadius: BorderRadius.circular(10),
-                              child: Image.network(
-                                msg['content'],
-                                width: 180,
-                                height: 180,
-                                fit: BoxFit.cover,
-                              ),
-                            )
-                          else
-                            Text(
-                              msg['content'],
-                              style: TextStyle(
-                                color: isMe ? Colors.white : Colors.black,
-                              ),
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (index == 0 ||
+                          (index > 0 &&
+                              (messages[index - 1]['timestamp'] as Timestamp?)
+                                      ?.toDate()
+                                      .day !=
+                                  messageTime?.day))
+                        Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 8.0),
+                          child: Center(
+                            child: Text(
+                              messageTime != null
+                                  ? '${messageTime.day}/${messageTime.month}/${messageTime.year}'
+                                  : '',
+                              style: const TextStyle(
+                                  fontSize: 12, color: Colors.grey),
                             ),
-                          if (isMe)
-                            Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                const SizedBox(width: 4),
-                                Icon(
-                                  (msg['readBy'] as List).length > 1
-                                      ? Icons.done_all
-                                      : Icons.check,
-                                  size: 16,
-                                  color: (msg['readBy'] as List).length > 1
-                                      ? Colors.green
-                                      : Colors.white70,
+                          ),
+                        ),
+                      Align(
+                        alignment:
+                            isMe ? Alignment.centerRight : Alignment.centerLeft,
+                        child: Container(
+                          margin: const EdgeInsets.symmetric(
+                              vertical: 4, horizontal: 8),
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color:
+                                isMe ? Colors.blueGrey : Colors.grey.shade300,
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: isMe
+                                ? CrossAxisAlignment.end
+                                : CrossAxisAlignment.start,
+                            children: [
+                              if (msg['type'] == 'image')
+                                ClipRRect(
+                                  borderRadius: BorderRadius.circular(10),
+                                  child: Image.network(
+                                    msg['content'],
+                                    width: 180,
+                                    height: 180,
+                                    fit: BoxFit.cover,
+                                  ),
+                                )
+                              else
+                                Text(
+                                  msg['content'],
+                                  style: TextStyle(
+                                    color: isMe ? Colors.white : Colors.black,
+                                  ),
                                 ),
-                              ],
-                            ),
-                        ],
+                              if (messageTime != null)
+                                Row(
+                                  crossAxisAlignment: isMe
+                                      ? CrossAxisAlignment.end
+                                      : CrossAxisAlignment.start,
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(
+                                      '${messageTime.hour.toString().padLeft(2, '0')}:${messageTime.minute.toString().padLeft(2, '0')}',
+                                      style: const TextStyle(
+                                          fontSize: 10, color: Colors.black),
+                                    ),
+                                    const SizedBox(width: 4),
+                                    if (isMe)
+                                      FutureBuilder<DocumentSnapshot>(
+                                        future: FirebaseFirestore.instance
+                                            .collection('users')
+                                            .doc(args['otherUid'])
+                                            .get(),
+                                        builder: (context, snapshot) {
+                                          if (!snapshot.hasData)
+                                            return const SizedBox();
+                                          final isOnline = (snapshot.data!
+                                                      .data()
+                                                  as Map?)?['onlineStatus'] ==
+                                              true;
+                                          final readBy = msg['readBy'] as List;
+
+                                          Icon icon;
+
+                                          if (readBy.length > 1) {
+                                            icon = const Icon(Icons.done_all,
+                                                size: 16, color: Colors.green);
+                                          } else if (isOnline) {
+                                            icon = const Icon(Icons.done_all,
+                                                size: 16,
+                                                color: Colors.white70);
+                                          } else {
+                                            icon = const Icon(Icons.check,
+                                                size: 16,
+                                                color: Colors.white54);
+                                          }
+
+                                          return icon;
+                                        },
+                                      ),
+                                  ],
+                                ),
+                            ],
+                          ),
+                        ),
                       ),
-                    ),
+                    ],
                   );
                 },
               );
             }),
           ),
-          Row(
-            children: [
-              IconButton(
-                icon: const Icon(Icons.camera_alt),
-                onPressed: () =>
-                    controller.pickAndSendImage(ImageSource.camera),
+          Material(
+            elevation: 3,
+            shadowColor: Colors.black26,
+            color: Colors.white,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              child: Row(
+                children: [
+                  // Uncomment below if you want icons back later
+                  // IconButton(
+                  //   icon: Icon(Icons.camera_alt, color: Colors.deepPurple),
+                  //   onPressed: () => controller.pickAndSendImage(ImageSource.camera),
+                  // ),
+                  // IconButton(
+                  //   icon: Icon(Icons.image, color: Colors.deepPurple),
+                  //   onPressed: () => controller.pickAndSendImage(ImageSource.gallery),
+                  // ),
+                  Expanded(
+                    child: TextField(
+                      controller: controller.messageController,
+                      decoration: const InputDecoration(
+                        hintText: 'Type a message...',
+                        border: InputBorder.none,
+                      ),
+                    ),
+                  ),
+                  InkWell(
+                    onTap: controller.sendMessage,
+                    child: Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: const BoxDecoration(
+                        color: Colors.deepPurple,
+                        shape: BoxShape.circle,
+                      ),
+                      child:
+                          const Icon(Icons.send, color: Colors.white, size: 20),
+                    ),
+                  ),
+                ],
               ),
-              IconButton(
-                icon: const Icon(Icons.image),
-                onPressed: () =>
-                    controller.pickAndSendImage(ImageSource.gallery),
-              ),
-              Expanded(
-                child: TextField(
-                  controller: controller.messageController,
-                  decoration: const InputDecoration(hintText: 'Type a message'),
-                ),
-              ),
-              IconButton(
-                icon: const Icon(Icons.send),
-                onPressed: controller.sendMessage,
-              ),
-            ],
-          ),
+            ),
+          )
         ],
       ),
     );

@@ -19,11 +19,36 @@ dependencies:
   firebase_messaging: ^15.2.5
   flutter_local_notifications: ^19.0.0
   font_awesome_flutter: ^10.8.0
+  flutter_launcher_icons: ^0.14.3
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^5.0.0
 
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: "assets/binaryapptech_logo.jpeg"
+  min_sdk_android: 21
+
+  web:
+    generate: true
+    image_path: "assets/binaryapptech_logo.jpeg"
+    background_color: "#ffffff"
+    theme_color: "#5e35b1"
+
+  windows:
+    generate: true
+    image_path: "assets/binaryapptech_logo.jpeg"
+    icon_size: 48
+
+  macos:
+    generate: true
+    image_path: "assets/binaryapptech_logo.jpeg"
+
+
 flutter:
   uses-material-design: true
+  assets:
+    - assets/

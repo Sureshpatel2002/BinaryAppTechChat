@@ -1,6 +1,7 @@
 import 'dart:developer';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:get/get.dart';
 
@@ -33,6 +34,7 @@ class AuthController extends GetxController {
       log('[AuthController] Firebase user signed in: ${user.uid}');
 
       await _createUserInFirestore(user);
+      await saveFcmToken(user);
 
       log('[AuthController] Redirecting to home...');
       Get.offAllNamed('/home');
@@ -57,6 +59,7 @@ class AuthController extends GetxController {
         'lastSeen': FieldValue.serverTimestamp(),
         'onlineStatus': true,
       });
+      await saveFcmToken(user);
       Get.offAllNamed('/home');
     } catch (e) {
       Get.snackbar("Signup Error", e.toString());
@@ -66,9 +69,34 @@ class AuthController extends GetxController {
   Future<void> signInWithEmail(String email, String password) async {
     try {
       await _auth.signInWithEmailAndPassword(email: email, password: password);
+      await saveFcmToken(_auth.currentUser!);
       Get.offAllNamed('/home');
     } catch (e) {
       Get.snackbar("Login Error", e.toString());
+    }
+  }
+
+  Future<void> saveFcmToken(User user) async {
+    try {
+      final token = await FirebaseMessaging.instance.getToken();
+      if (token != null) {
+        await _firestore.collection('users').doc(user.uid).update({
+          'fcmToken': token,
+        });
+        log('[AuthController] ✅ FCM token saved for ${user.uid}');
+      } else {
+        log('[AuthController][WARNING] FCM token is null');
+      }
+
+      // Listen for future token refresh
+      FirebaseMessaging.instance.onTokenRefresh.listen((newToken) async {
+        await _firestore.collection('users').doc(user.uid).update({
+          'fcmToken': newToken,
+        });
+        log('[AuthController] 🔄 FCM token refreshed and updated');
+      });
+    } catch (e) {
+      log('[AuthController][ERROR] Failed to save FCM token: $e');
     }
   }
 

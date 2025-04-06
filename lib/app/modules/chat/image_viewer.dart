@@ -19,7 +19,7 @@ class ImagePreviewScreen extends StatelessWidget {
         actions: [
           IconButton(
             icon: const Icon(Icons.send),
-            onPressed: onSend,
+            onPressed: onSend, // Trigger the send process
           )
         ],
       ),

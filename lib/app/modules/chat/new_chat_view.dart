@@ -4,7 +4,6 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 class NewChatView extends StatefulWidget {
-
   NewChatView({super.key});
 
   @override
@@ -27,19 +26,28 @@ class _NewChatViewState extends State<NewChatView> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Start New Chat')),
+      appBar: AppBar(
+        backgroundColor: Colors.deepPurple,
+        automaticallyImplyLeading: true,
+        iconTheme: const IconThemeData(
+            color: Colors.white), // <-- change back button color
+        title: const Text(
+          'Start New Chat',
+          style: TextStyle(color: Colors.white),
+        ),
+      ),
       body: Column(
         children: [
           Padding(
-            padding: const EdgeInsets.all(8.0),
+            padding: const EdgeInsets.all(20.0),
             child: TextField(
-              controller: searchController,
-              decoration: const InputDecoration(
-                hintText: 'Search by email',
-                border: OutlineInputBorder(),
-              ),
-              onChanged: (value) => searchText.value = value.trim(),
-            ),
+                controller: searchController,
+                decoration: const InputDecoration(
+                  hintText: 'Search by email',
+                  border: OutlineInputBorder(),
+                ),
+                onChanged: (value) =>
+                    searchText.value = value.trim().toLowerCase()),
           ),
           Expanded(
             child: Obx(() {
@@ -71,7 +79,8 @@ class _NewChatViewState extends State<NewChatView> {
                       final user = users[index];
                       return ListTile(
                         leading: user['photoUrl'] != ''
-                            ? CircleAvatar(backgroundImage: NetworkImage(user['photoUrl']))
+                            ? CircleAvatar(
+                                backgroundImage: NetworkImage(user['photoUrl']))
                             : const CircleAvatar(child: Icon(Icons.person)),
                         title: Text(user['displayName'] ?? ''),
                         subtitle: Text(user['email']),
